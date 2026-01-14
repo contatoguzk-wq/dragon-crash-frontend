@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Dragon Crash</title>
+
   <style>
     body {
       margin: 0;
@@ -81,6 +82,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <div class="card">
@@ -95,7 +97,7 @@
     <button class="apostar" id="btnApostar">APOSTAR</button>
     <button class="cashout disabled" id="btnCashout">CASHOUT</button>
 
-    <div class="status" id="status">Aguardando rodada...</div>
+    <div class="status" id="status">AGUARDANDO</div>
   </div>
 
   <script>
@@ -104,6 +106,7 @@
     let saldo = 1000;
     let apostaAtual = 0;
     let apostado = false;
+    let estadoAtual = "AGUARDANDO";
 
     const multEl = document.getElementById("mult");
     const saldoEl = document.getElementById("saldo");
@@ -114,6 +117,11 @@
     const btnCashout = document.getElementById("btnCashout");
 
     btnApostar.onclick = () => {
+      if (estadoAtual !== "AGUARDANDO") {
+        alert("Espere a próxima rodada");
+        return;
+      }
+
       const valor = parseFloat(apostaEl.value);
       if (!valor || valor <= 0 || valor > saldo) {
         alert("Aposta inválida");
@@ -128,18 +136,19 @@
       btnApostar.classList.add("disabled");
       btnCashout.classList.remove("disabled");
 
-      statusEl.innerText = "Aposta realizada!";
+      statusEl.innerText = "Aposta realizada";
     };
 
     btnCashout.onclick = () => {
-      if (!apostado) return;
+      if (!apostado || estadoAtual !== "CORRENDO") return;
 
-      const ganho = apostaAtual * parseFloat(multEl.innerText);
+      const mult = parseFloat(multEl.innerText.replace("x", ""));
+      const ganho = apostaAtual * mult;
+
       saldo += ganho;
-
       saldoEl.innerText = saldo.toFixed(2);
-      statusEl.innerText = `💰 Cashout: R$ ${ganho.toFixed(2)}`;
 
+      statusEl.innerText = `💰 Cashout em ${mult.toFixed(2)}x`;
       resetAposta();
     };
 
@@ -151,15 +160,24 @@
     }
 
     async function atualizarGame() {
-      const res = await fetch(API);
-      const data = await res.json();
+      try {
+        const res = await fetch(API);
+        const data = await res.json();
 
-      multEl.innerText = data.multiplicador.toFixed(2) + "x";
-      statusEl.innerText = "Estado: " + data.estado;
+        estadoAtual = data.estado;
 
-      if (data.estado === "CRASHOU" && apostado) {
-        statusEl.innerText = "💥 Crash! Você perdeu.";
-        resetAposta();
+        multEl.innerText = data.multiplicador.toFixed(2) + "x";
+        statusEl.innerText = "Estado: " + data.estado;
+
+        if (data.estado === "CRASHOU") {
+          if (apostado) {
+            statusEl.innerText = "💥 Crash! Você perdeu.";
+            resetAposta();
+          }
+        }
+
+      } catch (err) {
+        statusEl.innerText = "Erro de conexão";
       }
     }
 
