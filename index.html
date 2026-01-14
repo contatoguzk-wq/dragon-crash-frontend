@@ -19,10 +19,10 @@
     .card {
       background: #111;
       padding: 30px;
-      border-radius: 12px;
+      border-radius: 14px;
       text-align: center;
-      box-shadow: 0 0 25px rgba(0,255,180,.25);
-      width: 320px;
+      box-shadow: 0 0 30px rgba(0,255,180,.35);
+      width: 340px;
     }
 
     h1 {
@@ -32,7 +32,7 @@
 
     .mult {
       font-size: 48px;
-      margin: 10px 0;
+      margin: 15px 0;
       color: #00ffb3;
     }
 
@@ -43,21 +43,22 @@
 
     input {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: none;
       font-size: 16px;
     }
 
     button {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       margin-top: 10px;
       font-size: 16px;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
+      font-weight: bold;
     }
 
     .apostar {
@@ -82,7 +83,6 @@
     }
   </style>
 </head>
-
 <body>
 
   <div class="card">
@@ -91,7 +91,7 @@
     <div class="mult" id="mult">1.00x</div>
 
     <div class="saldo">
-      Saldo: R$ <span id="saldo">0.00</span>
+      Saldo: R$ <span id="saldo">1000.00</span>
     </div>
 
     <input type="number" id="aposta" placeholder="Valor da aposta">
@@ -103,87 +103,108 @@
   </div>
 
   <script>
-    const API = "https://dragon-crash-backend.onrender.com";
+    // 🔗 BACKEND
+    const API = "https://dragon-crash-backend.onrender.com/game";
 
+    // 🎮 ESTADO DO JOGO
+    let saldo = 1000;
+    let apostaAtual = 0;
+    let apostado = false;
+
+    // 🔢 MULTIPLICADOR SUAVE
+    let multiplicadorAtual = 1;
+    let multiplicadorAlvo = 1;
+    let animando = false;
+
+    // 📌 ELEMENTOS
     const multEl = document.getElementById("mult");
     const saldoEl = document.getElementById("saldo");
-    const statusEl = document.getElementById("status");
     const apostaEl = document.getElementById("aposta");
+    const statusEl = document.getElementById("status");
 
     const btnApostar = document.getElementById("btnApostar");
     const btnCashout = document.getElementById("btnCashout");
 
-    let estadoAtual = "AGUARDANDO";
+    // 🎯 APOSTAR
+    btnApostar.onclick = () => {
+      const valor = parseFloat(apostaEl.value);
 
-    // =========================
-    // ATUALIZAR JOGO
-    // =========================
-    async function atualizarGame() {
-      const res = await fetch(API + "/game");
-      const data = await res.json();
-
-      multEl.innerText = data.multiplicador.toFixed(2) + "x";
-      saldoEl.innerText = data.saldo.toFixed(2);
-      statusEl.innerText = "Estado: " + data.estado;
-
-      estadoAtual = data.estado;
-
-      if (estadoAtual === "CORRENDO") {
-        btnCashout.classList.remove("disabled");
+      if (!valor || valor <= 0 || valor > saldo) {
+        alert("Aposta inválida");
+        return;
       }
 
-      if (estadoAtual === "CRASHOU") {
-        btnCashout.classList.add("disabled");
+      apostaAtual = valor;
+      saldo -= valor;
+      apostado = true;
+
+      saldoEl.innerText = saldo.toFixed(2);
+
+      btnApostar.classList.add("disabled");
+      btnCashout.classList.remove("disabled");
+
+      statusEl.innerText = "Aposta realizada!";
+    };
+
+    // 💰 CASHOUT
+    btnCashout.onclick = () => {
+      if (!apostado) return;
+
+      const ganho = apostaAtual * multiplicadorAtual;
+      saldo += ganho;
+
+      saldoEl.innerText = saldo.toFixed(2);
+      statusEl.innerText = `💰 Cashout: R$ ${ganho.toFixed(2)}`;
+
+      resetAposta();
+    };
+
+    function resetAposta() {
+      apostaAtual = 0;
+      apostado = false;
+      btnApostar.classList.remove("disabled");
+      btnCashout.classList.add("disabled");
+    }
+
+    // 🔄 BUSCAR BACKEND
+    async function atualizarGame() {
+      const res = await fetch(API);
+      const data = await res.json();
+
+      multiplicadorAlvo = data.multiplicador;
+      statusEl.innerText = "Estado: " + data.estado;
+
+      if (!animando) animarMultiplicador();
+
+      if (data.estado === "ACIDENTOU" && apostado) {
+        statusEl.innerText = "💥 Crash! Você perdeu.";
+        resetAposta();
       }
     }
 
-    // =========================
-    // APOSTAR
-    // =========================
-    btnApostar.onclick = async () => {
-      const valor = Number(apostaEl.value);
-      if (!valor || valor <= 0) {
-        alert("Valor inválido");
-        return;
+    // 🎞️ ANIMAÇÃO SUAVE
+    function animarMultiplicador() {
+      animando = true;
+
+      function frame() {
+        if (multiplicadorAtual < multiplicadorAlvo) {
+          multiplicadorAtual += 0.01;
+
+          if (multiplicadorAtual > multiplicadorAlvo) {
+            multiplicadorAtual = multiplicadorAlvo;
+          }
+
+          multEl.innerText = multiplicadorAtual.toFixed(2) + "x";
+          requestAnimationFrame(frame);
+        } else {
+          animando = false;
+        }
       }
 
-      const res = await fetch(API + "/bet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ valor })
-      });
+      requestAnimationFrame(frame);
+    }
 
-      const data = await res.json();
-
-      if (data.erro) {
-        alert(data.erro);
-        return;
-      }
-
-      statusEl.innerText = "Aposta realizada!";
-      btnApostar.classList.add("disabled");
-    };
-
-    // =========================
-    // CASHOUT
-    // =========================
-    btnCashout.onclick = async () => {
-      const res = await fetch(API + "/cashout", {
-        method: "POST"
-      });
-
-      const data = await res.json();
-
-      if (data.erro) {
-        alert(data.erro);
-        return;
-      }
-
-      statusEl.innerText = `💰 Cashout: R$ ${data.ganho}`;
-      btnCashout.classList.add("disabled");
-      btnApostar.classList.remove("disabled");
-    };
-
+    // ⏱️ LOOP
     setInterval(atualizarGame, 300);
   </script>
 
