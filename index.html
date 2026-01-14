@@ -59,9 +59,13 @@ li { font-size:14px; margin-bottom:4px }
   <div class="mult" id="mult">1.00x</div>
   <div id="contador"></div>
 
+  <div class="status">
+    Saldo: R$ <span id="saldo">1000.00</span>
+  </div>
+
   <input type="number" id="aposta" placeholder="Valor da aposta">
-  <button class="apostar" id="apostar">APOSTAR</button>
-  <button class="cashout disabled" id="cashout">CASHOUT</button>
+  <button class="apostar" id="btnApostar">APOSTAR</button>
+  <button class="cashout disabled" id="btnCashout">CASHOUT</button>
 
   <div class="status" id="status"></div>
 
@@ -70,20 +74,37 @@ li { font-size:14px; margin-bottom:4px }
 </div>
 
 <script>
+/* ===============================
+   CONFIG
+================================ */
 const API = "https://dragon-crash-backend.onrender.com";
 
+/* ===============================
+   ELEMENTOS
+================================ */
 const multEl = document.getElementById("mult");
 const statusEl = document.getElementById("status");
 const contadorEl = document.getElementById("contador");
 const historicoEl = document.getElementById("historico");
+const saldoEl = document.getElementById("saldo");
+
+const apostaEl = document.getElementById("aposta");
+const btnApostar = document.getElementById("btnApostar");
+const btnCashout = document.getElementById("btnCashout");
+
+/* ===============================
+   ESTADO
+================================ */
+let saldo = 1000;
+let apostaAtiva = false;
 
 let multAtual = 1;
 let multAlvo = 1;
 let animando = false;
 
-// =====================
-// GAME LOOP
-// =====================
+/* ===============================
+   GAME LOOP
+================================ */
 async function atualizarGame() {
   const res = await fetch(API + "/game");
   const data = await res.json();
@@ -94,26 +115,36 @@ async function atualizarGame() {
   if (data.estado === "AGUARDANDO") {
     contadorEl.innerText = `⏳ Nova rodada em ${data.segundosRestantes}s`;
     statusEl.innerText = "Aguardando apostas";
+    btnApostar.classList.remove("disabled");
+    btnCashout.classList.add("disabled");
+    apostaAtiva = false;
+    multAtual = 1;
+    multEl.innerText = "1.00x";
   }
 
   if (data.estado === "CORRENDO") {
     contadorEl.innerText = "";
     statusEl.innerText = "Rodada em andamento";
+    btnApostar.classList.add("disabled");
+    if (apostaAtiva) btnCashout.classList.remove("disabled");
   }
 
   if (data.estado === "ACIDENTOU") {
     statusEl.innerText = "💥 CRASHOU";
+    btnCashout.classList.add("disabled");
+    apostaAtiva = false;
   }
 }
 
-// =====================
-// ANIMAÇÃO SUAVE
-// =====================
+/* ===============================
+   ANIMAÇÃO
+================================ */
 function animar() {
   animando = true;
   function frame() {
     if (multAtual < multAlvo) {
       multAtual += 0.02;
+      if (multAtual > multAlvo) multAtual = multAlvo;
       multEl.innerText = multAtual.toFixed(2) + "x";
       requestAnimationFrame(frame);
     } else {
@@ -123,9 +154,52 @@ function animar() {
   requestAnimationFrame(frame);
 }
 
-// =====================
-// HISTÓRICO
-// =====================
+/* ===============================
+   APOSTAR
+================================ */
+btnApostar.onclick = async () => {
+  const valor = Number(apostaEl.value);
+  if (!valor || valor <= 0 || valor > saldo) {
+    alert("Valor inválido");
+    return;
+  }
+
+  const res = await fetch(API + "/bet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ valor })
+  });
+
+  const data = await res.json();
+  if (data.erro) return alert(data.erro);
+
+  saldo -= valor;
+  saldoEl.innerText = saldo.toFixed(2);
+  apostaAtiva = true;
+  statusEl.innerText = "✅ Aposta confirmada!";
+};
+
+/* ===============================
+   CASHOUT
+================================ */
+btnCashout.onclick = async () => {
+  if (!apostaAtiva) return;
+
+  const res = await fetch(API + "/cashout", { method: "POST" });
+  const data = await res.json();
+
+  if (data.erro) return alert(data.erro);
+
+  saldo += data.ganho;
+  saldoEl.innerText = saldo.toFixed(2);
+  statusEl.innerText = `💰 Cashout: R$ ${data.ganho.toFixed(2)}`;
+  apostaAtiva = false;
+  btnCashout.classList.add("disabled");
+};
+
+/* ===============================
+   HISTÓRICO
+================================ */
 async function atualizarHistorico() {
   const res = await fetch(API + "/history");
   const data = await res.json();
@@ -138,8 +212,12 @@ async function atualizarHistorico() {
   });
 }
 
+/* ===============================
+   LOOPS
+================================ */
 setInterval(atualizarGame, 300);
 setInterval(atualizarHistorico, 1000);
 </script>
+
 </body>
 </html>
