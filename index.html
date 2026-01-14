@@ -3,69 +3,168 @@
 <head>
   <meta charset="UTF-8">
   <title>Dragon Crash</title>
-
   <style>
     body {
-      background: #0d0d0d;
-      color: #00ffcc;
-      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      background: #0b0b0b;
+      color: #fff;
+      font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      margin: 0;
     }
 
-    .box {
-      background: #141414;
-      padding: 40px;
+    .card {
+      background: #111;
+      padding: 30px;
       border-radius: 12px;
       text-align: center;
+      box-shadow: 0 0 25px rgba(0,255,180,.25);
       width: 320px;
-      box-shadow: 0 0 25px rgba(0,255,204,0.3);
     }
 
     h1 {
-      margin-bottom: 20px;
+      color: #00ffb3;
+      margin-bottom: 10px;
     }
 
     .mult {
       font-size: 48px;
-      margin: 20px 0;
+      margin: 10px 0;
+      color: #00ffb3;
+    }
+
+    .saldo {
+      margin: 10px 0;
+      font-size: 18px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .apostar {
+      background: #00ffb3;
+      color: #000;
+    }
+
+    .cashout {
+      background: #ff4d4d;
+      color: #fff;
+    }
+
+    .disabled {
+      opacity: 0.5;
+      pointer-events: none;
     }
 
     .status {
-      color: #aaa;
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.8;
     }
   </style>
 </head>
-
 <body>
-  <div class="box">
+
+  <div class="card">
     <h1>🐉 Dragon Crash</h1>
+
     <div class="mult" id="mult">1.00x</div>
-    <div class="status" id="status">Conectando...</div>
+
+    <div class="saldo">Saldo: R$ <span id="saldo">1000.00</span></div>
+
+    <input type="number" id="aposta" placeholder="Valor da aposta">
+
+    <button class="apostar" id="btnApostar">APOSTAR</button>
+    <button class="cashout disabled" id="btnCashout">CASHOUT</button>
+
+    <div class="status" id="status">Aguardando rodada...</div>
   </div>
 
   <script>
-    const API = "https://dragon-crash-backend.onrender.com/game"
+    const API = "https://dragon-crash-backend.onrender.com/game";
 
-    async function atualizar() {
-      try {
-        const res = await fetch(API)
-        const data = await res.json()
+    let saldo = 1000;
+    let apostaAtual = 0;
+    let apostado = false;
 
-        document.getElementById("mult").innerText =
-          data.multiplicador.toFixed(2) + "x"
+    const multEl = document.getElementById("mult");
+    const saldoEl = document.getElementById("saldo");
+    const apostaEl = document.getElementById("aposta");
+    const statusEl = document.getElementById("status");
 
-        document.getElementById("status").innerText =
-          "Estado: " + data.estado
-      } catch (err) {
-        document.getElementById("status").innerText = "Erro de conexão"
+    const btnApostar = document.getElementById("btnApostar");
+    const btnCashout = document.getElementById("btnCashout");
+
+    btnApostar.onclick = () => {
+      const valor = parseFloat(apostaEl.value);
+      if (!valor || valor <= 0 || valor > saldo) {
+        alert("Aposta inválida");
+        return;
+      }
+
+      apostaAtual = valor;
+      saldo -= valor;
+      apostado = true;
+
+      saldoEl.innerText = saldo.toFixed(2);
+      btnApostar.classList.add("disabled");
+      btnCashout.classList.remove("disabled");
+
+      statusEl.innerText = "Aposta realizada!";
+    };
+
+    btnCashout.onclick = () => {
+      if (!apostado) return;
+
+      const ganho = apostaAtual * parseFloat(multEl.innerText);
+      saldo += ganho;
+
+      saldoEl.innerText = saldo.toFixed(2);
+      statusEl.innerText = `💰 Cashout: R$ ${ganho.toFixed(2)}`;
+
+      resetAposta();
+    };
+
+    function resetAposta() {
+      apostaAtual = 0;
+      apostado = false;
+      btnApostar.classList.remove("disabled");
+      btnCashout.classList.add("disabled");
+    }
+
+    async function atualizarGame() {
+      const res = await fetch(API);
+      const data = await res.json();
+
+      multEl.innerText = data.multiplicador.toFixed(2) + "x";
+      statusEl.innerText = "Estado: " + data.estado;
+
+      if (data.estado === "ACIDENTOU" && apostado) {
+        statusEl.innerText = "💥 Crash! Você perdeu.";
+        resetAposta();
       }
     }
 
-    setInterval(atualizar, 100)
+    setInterval(atualizarGame, 500);
   </script>
+
 </body>
 </html>
