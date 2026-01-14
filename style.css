@@ -1,0 +1,86 @@
+let saldo = 1000;
+let aposta = 0;
+let multiplicador = 1.0;
+let intervalo = null;
+let apostou = false;
+let estado = "AGUARDANDO";
+
+const multEl = document.getElementById("multiplicador");
+const saldoEl = document.getElementById("saldo");
+const statusEl = document.getElementById("status");
+const apostaInput = document.getElementById("aposta");
+const apostarBtn = document.getElementById("apostar");
+const cashoutBtn = document.getElementById("cashout");
+
+saldoEl.innerText = `Saldo: R$ ${saldo.toFixed(2)}`;
+
+function iniciarRodada() {
+  estado = "CORRENDO";
+  statusEl.innerText = "Estado: CORRENDO";
+  multiplicador = 1.0;
+  multEl.innerText = `${multiplicador.toFixed(2)}x`;
+
+  intervalo = setInterval(() => {
+    multiplicador += 0.05;
+    multEl.innerText = `${multiplicador.toFixed(2)}x`;
+
+    if (Math.random() < 0.01) {
+      crash();
+    }
+  }, 100);
+}
+
+function crash() {
+  clearInterval(intervalo);
+  estado = "CRASHOU";
+  statusEl.innerText = "💥 CRASHOU";
+
+  if (apostou) {
+    apostou = false;
+    cashoutBtn.disabled = true;
+    apostarBtn.disabled = false;
+  }
+
+  setTimeout(() => {
+    estado = "AGUARDANDO";
+    statusEl.innerText = "Estado: AGUARDANDO";
+    iniciarRodada();
+  }, 3000);
+}
+
+apostarBtn.addEventListener("click", () => {
+  aposta = parseFloat(apostaInput.value);
+
+  if (estado !== "AGUARDANDO") {
+    alert("Aguarde a próxima rodada");
+    return;
+  }
+
+  if (isNaN(aposta) || aposta <= 0 || aposta > saldo) {
+    alert("Valor inválido");
+    return;
+  }
+
+  saldo -= aposta;
+  saldoEl.innerText = `Saldo: R$ ${saldo.toFixed(2)}`;
+  apostou = true;
+
+  apostarBtn.disabled = true;
+  cashoutBtn.disabled = false;
+});
+
+cashoutBtn.addEventListener("click", () => {
+  if (!apostou || estado !== "CORRENDO") return;
+
+  let ganho = aposta * multiplicador;
+  saldo += ganho;
+
+  saldoEl.innerText = `Saldo: R$ ${saldo.toFixed(2)}`;
+  statusEl.innerText = `✅ CASHOUT EM ${multiplicador.toFixed(2)}x`;
+
+  apostou = false;
+  cashoutBtn.disabled = true;
+  apostarBtn.disabled = false;
+});
+
+iniciarRodada();
