@@ -19,10 +19,10 @@
     .card {
       background: #111;
       padding: 30px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 0 25px rgba(0,255,180,.25);
+      border-radius: 14px;
       width: 320px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0,255,180,.35);
     }
 
     h1 {
@@ -31,22 +31,21 @@
     }
 
     .mult {
-      font-size: 48px;
-      margin: 10px 0;
+      font-size: 46px;
       color: #00ffb3;
+      margin: 10px 0;
     }
 
     .saldo {
-      margin: 10px 0;
-      font-size: 18px;
+      margin-bottom: 10px;
     }
 
     input {
       width: 100%;
       padding: 10px;
-      margin-top: 10px;
       border-radius: 6px;
       border: none;
+      margin-top: 10px;
       font-size: 16px;
     }
 
@@ -54,9 +53,9 @@
       width: 100%;
       padding: 12px;
       margin-top: 10px;
-      font-size: 16px;
-      border: none;
       border-radius: 6px;
+      border: none;
+      font-size: 16px;
       cursor: pointer;
     }
 
@@ -71,7 +70,7 @@
     }
 
     .disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       pointer-events: none;
     }
 
@@ -85,104 +84,96 @@
 
 <body>
 
-  <div class="card">
-    <h1>🐉 Dragon Crash</h1>
+<div class="card">
+  <h1>🐉 Dragon Crash</h1>
 
-    <div class="mult" id="mult">1.00x</div>
+  <div class="mult" id="mult">1.00x</div>
 
-    <div class="saldo">Saldo: R$ <span id="saldo">1000.00</span></div>
-
-    <input type="number" id="aposta" placeholder="Valor da aposta">
-
-    <button class="apostar" id="btnApostar">APOSTAR</button>
-    <button class="cashout disabled" id="btnCashout">CASHOUT</button>
-
-    <div class="status" id="status">AGUARDANDO</div>
+  <div class="saldo">
+    Saldo: R$ <span id="saldo">1000.00</span>
   </div>
 
-  <script>
-    const API = "https://dragon-crash-backend.onrender.com/game";
+  <input type="number" id="aposta" placeholder="Valor da aposta">
 
-    let saldo = 1000;
-    let apostaAtual = 0;
-    let apostado = false;
-    let estadoAtual = "AGUARDANDO";
+  <button id="btnApostar" class="apostar">APOSTAR</button>
+  <button id="btnCashout" class="cashout disabled">CASHOUT</button>
 
-    const multEl = document.getElementById("mult");
-    const saldoEl = document.getElementById("saldo");
-    const apostaEl = document.getElementById("aposta");
-    const statusEl = document.getElementById("status");
+  <div class="status" id="status">Aguardando rodada...</div>
+</div>
 
-    const btnApostar = document.getElementById("btnApostar");
-    const btnCashout = document.getElementById("btnCashout");
+<script>
+  const API = "https://dragon-crash-backend.onrender.com/game";
 
-    btnApostar.onclick = () => {
-      if (estadoAtual !== "AGUARDANDO") {
-        alert("Espere a próxima rodada");
-        return;
-      }
+  let saldo = 1000;
+  let aposta = 0;
+  let apostado = false;
+  let multiplicadorAtual = 1;
 
-      const valor = parseFloat(apostaEl.value);
-      if (!valor || valor <= 0 || valor > saldo) {
-        alert("Aposta inválida");
-        return;
-      }
+  const multEl = document.getElementById("mult");
+  const saldoEl = document.getElementById("saldo");
+  const apostaEl = document.getElementById("aposta");
+  const statusEl = document.getElementById("status");
+  const btnApostar = document.getElementById("btnApostar");
+  const btnCashout = document.getElementById("btnCashout");
 
-      apostaAtual = valor;
-      saldo -= valor;
-      apostado = true;
+  btnApostar.onclick = () => {
+    const valor = parseFloat(apostaEl.value);
 
-      saldoEl.innerText = saldo.toFixed(2);
-      btnApostar.classList.add("disabled");
-      btnCashout.classList.remove("disabled");
-
-      statusEl.innerText = "Aposta realizada";
-    };
-
-    btnCashout.onclick = () => {
-      if (!apostado || estadoAtual !== "CORRENDO") return;
-
-      const mult = parseFloat(multEl.innerText.replace("x", ""));
-      const ganho = apostaAtual * mult;
-
-      saldo += ganho;
-      saldoEl.innerText = saldo.toFixed(2);
-
-      statusEl.innerText = `💰 Cashout em ${mult.toFixed(2)}x`;
-      resetAposta();
-    };
-
-    function resetAposta() {
-      apostaAtual = 0;
-      apostado = false;
-      btnApostar.classList.remove("disabled");
-      btnCashout.classList.add("disabled");
+    if (!valor || valor <= 0 || valor > saldo) {
+      alert("Valor inválido");
+      return;
     }
 
-    async function atualizarGame() {
-      try {
-        const res = await fetch(API);
-        const data = await res.json();
+    aposta = valor;
+    saldo -= valor;
+    apostado = true;
 
-        estadoAtual = data.estado;
+    saldoEl.innerText = saldo.toFixed(2);
+    statusEl.innerText = "Aposta realizada";
 
-        multEl.innerText = data.multiplicador.toFixed(2) + "x";
-        statusEl.innerText = "Estado: " + data.estado;
+    btnApostar.classList.add("disabled");
+    btnCashout.classList.remove("disabled");
+  };
 
-        if (data.estado === "CRASHOU") {
-          if (apostado) {
-            statusEl.innerText = "💥 Crash! Você perdeu.";
-            resetAposta();
-          }
-        }
+  btnCashout.onclick = () => {
+    if (!apostado) return;
 
-      } catch (err) {
-        statusEl.innerText = "Erro de conexão";
+    const ganho = aposta * multiplicadorAtual;
+    saldo += ganho;
+
+    saldoEl.innerText = saldo.toFixed(2);
+    statusEl.innerText = `💰 Cashout: R$ ${ganho.toFixed(2)}`;
+
+    reset();
+  };
+
+  function reset() {
+    aposta = 0;
+    apostado = false;
+    btnApostar.classList.remove("disabled");
+    btnCashout.classList.add("disabled");
+  }
+
+  async function atualizar() {
+    try {
+      const res = await fetch(API);
+      const data = await res.json();
+
+      multiplicadorAtual = data.multiplicador;
+      multEl.innerText = multiplicadorAtual.toFixed(2) + "x";
+      statusEl.innerText = "Estado: " + data.estado;
+
+      if (data.estado === "ACIDENTOU" && apostado) {
+        statusEl.innerText = "💥 Crash! Você perdeu.";
+        reset();
       }
+    } catch (e) {
+      statusEl.innerText = "Erro de conexão";
     }
+  }
 
-    setInterval(atualizarGame, 500);
-  </script>
+  setInterval(atualizar, 500);
+</script>
 
 </body>
 </html>
