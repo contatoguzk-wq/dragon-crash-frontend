@@ -157,7 +157,7 @@
       multEl.innerText = data.multiplicador.toFixed(2) + "x";
       statusEl.innerText = "Estado: " + data.estado;
 
-      if (data.estado === "ACIDENTOU" && apostado) {
+      if (data.estado === "CRASHOU" && apostado) {
         statusEl.innerText = "💥 Crash! Você perdeu.";
         resetAposta();
       }
