@@ -22,7 +22,7 @@
       border-radius: 14px;
       text-align: center;
       box-shadow: 0 0 30px rgba(0,255,180,.35);
-      width: 340px;
+      width: 360px;
     }
 
     h1 {
@@ -81,6 +81,20 @@
       font-size: 14px;
       opacity: 0.9;
     }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 10px;
+    }
+
+    li {
+      background: #1a1a1a;
+      padding: 6px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
   </style>
 </head>
 
@@ -102,6 +116,10 @@
 
     <div class="status" id="status"></div>
     <div class="status" id="contador"></div>
+
+    <!-- 🔥 HISTÓRICO -->
+    <h3 style="margin-top:15px;">📊 Últimas rodadas</h3>
+    <ul id="historico"></ul>
   </div>
 
   <script>
@@ -112,6 +130,7 @@
     const statusEl = document.getElementById("status");
     const contadorEl = document.getElementById("contador");
     const apostaEl = document.getElementById("aposta");
+    const historicoEl = document.getElementById("historico");
 
     const btnApostar = document.getElementById("btnApostar");
     const btnCashout = document.getElementById("btnCashout");
@@ -123,15 +142,11 @@
     let multiplicadorAlvo = 1;
     let animando = false;
 
-    // =========================
-    // ATUALIZAR JOGO
-    // =========================
     async function atualizarGame() {
       const res = await fetch(API + "/game");
       const data = await res.json();
 
       multiplicadorAlvo = data.multiplicador;
-
       if (!animando) animarMultiplicador();
 
       if (data.estado === "AGUARDANDO") {
@@ -156,37 +171,23 @@
       }
     }
 
-    // =========================
-    // ANIMAÇÃO SUAVE
-    // =========================
     function animarMultiplicador() {
       animando = true;
-
       function frame() {
         if (multiplicadorAtual < multiplicadorAlvo) {
           multiplicadorAtual += 0.01;
-          if (multiplicadorAtual > multiplicadorAlvo) {
-            multiplicadorAtual = multiplicadorAlvo;
-          }
           multEl.innerText = multiplicadorAtual.toFixed(2) + "x";
           requestAnimationFrame(frame);
         } else {
           animando = false;
         }
       }
-
       requestAnimationFrame(frame);
     }
 
-    // =========================
-    // APOSTAR
-    // =========================
     btnApostar.onclick = async () => {
       const valor = Number(apostaEl.value);
-      if (!valor || valor <= 0) {
-        alert("Valor inválido");
-        return;
-      }
+      if (!valor || valor <= 0) return alert("Valor inválido");
 
       const res = await fetch(API + "/bet", {
         method: "POST",
@@ -195,46 +196,40 @@
       });
 
       const data = await res.json();
-
-      if (data.erro) {
-        alert(data.erro);
-        return;
-      }
+      if (data.erro) return alert(data.erro);
 
       apostaAtiva = true;
       saldo -= valor;
       saldoEl.innerText = saldo.toFixed(2);
-      statusEl.innerText = "Aposta confirmada!";
     };
 
-    // =========================
-    // CASHOUT
-    // =========================
     btnCashout.onclick = async () => {
       if (!apostaAtiva) return;
 
       const res = await fetch(API + "/cashout", { method: "POST" });
       const data = await res.json();
-
-      if (data.erro) {
-        alert(data.erro);
-        return;
-      }
+      if (data.erro) return alert(data.erro);
 
       saldo += data.ganho;
       saldoEl.innerText = saldo.toFixed(2);
-      statusEl.innerText = `💰 Cashout: R$ ${data.ganho}`;
-
       apostaAtiva = false;
     };
 
-    setInterval(atualizarGame, 300);
-  </script>
-  <div style="margin-top:15px;">
-  <h3>📊 Últimas rodadas</h3>
-  <ul id="historico"></ul>
-</div>
+    async function atualizarHistorico() {
+      const res = await fetch(API + "/history");
+      const data = await res.json();
 
+      historicoEl.innerHTML = "";
+      data.forEach(r => {
+        const li = document.createElement("li");
+        li.innerText = `💥 ${r.crash}x (${r.hora})`;
+        historicoEl.appendChild(li);
+      });
+    }
+
+    setInterval(atualizarGame, 300);
+    setInterval(atualizarHistorico, 1000);
+  </script>
 
 </body>
 </html>
